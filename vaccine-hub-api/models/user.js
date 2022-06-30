@@ -1,4 +1,6 @@
 const db = require("../db");
+const bcrypt = require("bcrypt");
+const {BCRYPT_WORK_FACTOR} = require("../../config");
 const {UnauthorizedError, BadRequestError} = require("../utils/errors");
 
 class User{
@@ -22,6 +24,10 @@ class User{
                 throw new BadRequestError(`Missing ${field} in request body`);
             }
         })
+
+        if (credentials.email.indexOf("@") <= 0) {
+            throw new BadRequestError("Invalid email");
+        }
         
         // Error: if user with same email already exists
         const existingUser = await User.fetchUserByEmail(credentials.email);
@@ -30,6 +36,8 @@ class User{
         }
 
         // Take user password and hash it
+        const hashedPassword = await bcrypt.hash(credentials.password, BCRYPT_WORK_FACTOR);
+
         // Take user email and lowercase it
         const lowerCasedEmail = credentials.email.toLowerCase();
 
@@ -44,8 +52,8 @@ class User{
                 date
             )
             VALUES ($1, $2, $3, $4, $5, $6)
-            RETURNING id, email, password, first_name, last_name, location, date;
-        `, [lowerCasedEmail, credentials.password, credentials.first_name, credentials.last_name, credentials.location, credentials.date])
+            RETURNING id, email, first_name, last_name, location, date;
+        `, [lowerCasedEmail, hashedPassword, credentials.first_name, credentials.last_name, credentials.location, credentials.date])
         // Return user
         const user = result.rows[0];
 
